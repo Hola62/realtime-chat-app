@@ -4,12 +4,16 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_socketio import SocketIO
+from flask_cors import CORS
 
 load_dotenv()  # load .env variables
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev_secret")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-me")
+
+# Enable CORS for frontend
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Initialize extensions
 jwt = JWTManager(app)

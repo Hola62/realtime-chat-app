@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -7,11 +8,34 @@ from models.user_model import init_user_table, get_user_by_email, create_user
 
 auth_bp = Blueprint("auth", __name__)
 
-
-@auth_bp.before_app_first_request
-def _ensure_tables():
-    # Create users table on first request to avoid failing imports when DB is not available
+# Initialize table on module import (Flask 3.x compatible)
+# In production, use migrations instead
+try:
     init_user_table()
+except Exception as e:
+    print(f"Warning: Could not initialize users table on import: {e}")
+
+
+def validate_email(email: str) -> bool:
+    """Basic email format validation."""
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    return re.match(pattern, email) is not None
+
+
+def validate_password(password: str) -> tuple[bool, str]:
+    """Validate password strength.
+
+    Returns: (is_valid, error_message)
+    """
+    if len(password) < 8:
+        return False, "password must be at least 8 characters"
+    if not re.search(r"[A-Z]", password):
+        return False, "password must contain at least one uppercase letter"
+    if not re.search(r"[a-z]", password):
+        return False, "password must contain at least one lowercase letter"
+    if not re.search(r"[0-9]", password):
+        return False, "password must contain at least one number"
+    return True, ""
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -19,24 +43,38 @@ def register():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    display_name = data.get("display_name") or None
+    display_name = (data.get("display_name") or "").strip() or None
 
+    # Validation
     if not email or not password:
         return jsonify({"message": "email and password are required"}), 400
 
+    if not validate_email(email):
+        return jsonify({"message": "invalid email format"}), 400
+
+    is_valid, error_msg = validate_password(password)
+    if not is_valid:
+        return jsonify({"message": error_msg}), 400
+
+    if display_name and len(display_name) > 255:
+        return jsonify({"message": "display name too long (max 255 characters)"}), 400
+
+    # Check for existing user
     if get_user_by_email(email):
         return jsonify({"message": "email already registered"}), 409
 
+    # Create user
     password_hash = generate_password_hash(password)
     user_id = create_user(email, password_hash, display_name)
     if not user_id:
         return jsonify({"message": "could not create user"}), 500
 
+    # Generate token
     token = create_access_token(identity=str(user_id))
     return (
         jsonify(
             {
-                "message": "registered",
+                "message": "registered successfully",
                 "user": {"id": user_id, "email": email, "display_name": display_name},
                 "access_token": token,
             }

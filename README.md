@@ -79,11 +79,14 @@
 
 Base URL: <http://127.0.0.1:5000>
 
+### Backend Endpoints
+
 - POST /auth/register
 
   - Body (JSON): { "email": string, "password": string, "display_name"?: string }
   - 201: { message, user: { id, email, display_name }, access_token }
-  - 400: missing fields; 409: email exists; 500: create failed
+  - 400: missing/invalid fields; 409: email exists; 500: create failed
+  - Password requirements: min 8 chars, uppercase, lowercase, number
 
 - POST /auth/login
 
@@ -95,10 +98,28 @@ Base URL: <http://127.0.0.1:5000>
   - Headers: Authorization: Bearer <access_token>
   - 200: { id }
 
-Notes
+### Frontend Pages
+
+- **frontend/register.html** — Registration form with validation
+- **frontend/login.html** — Login form
+- **frontend/inbdex.html** — Landing page (redirects if already logged in)
+
+### How to Test Registration
+
+1. Ensure backend is running: `python backend/app.py`
+2. Open `frontend/register.html` in your browser or use a simple HTTP server:
+   - `python -m http.server 8000` (navigate to <http://localhost:8000/frontend/register.html>)
+3. Fill in the form:
+   - Email: valid format (e.g., test@example.com)
+   - Password: min 8 chars, uppercase, lowercase, number (e.g., TestPass123)
+   - Display Name: optional
+4. On success: redirects to chat.html with JWT stored in localStorage
+
+### Notes
 
 - JWT secret is configured via `backend/.env` (JWT_SECRET_KEY).
 - MySQL connection vars support either MYSQL\_\* (preferred) or DATABASE\_\* naming.
+- CORS is enabled for all origins (restrict in production).
 
 ## Troubleshooting
 
