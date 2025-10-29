@@ -12,7 +12,8 @@ def init_user_table() -> None:
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			email VARCHAR(255) NOT NULL UNIQUE,
 			password_hash VARCHAR(255) NOT NULL,
-			display_name VARCHAR(255) NULL,
+			first_name VARCHAR(100) NOT NULL,
+			last_name VARCHAR(100) NOT NULL,
 			avatar_url TEXT NULL,
 			status VARCHAR(32) DEFAULT 'offline',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -49,16 +50,20 @@ def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
 
 
 def create_user(
-    email: str, password_hash: str, display_name: Optional[str] = None
+    email: str, password_hash: str, first_name: str, last_name: str
 ) -> Optional[int]:
+    """Create a new user with email, password, first name, and last name.
+
+    Returns: user_id on success, None on failure
+    """
     conn = get_connection()
     if not conn:
         return None
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (email, password_hash, display_name) VALUES (%s, %s, %s)",
-                (email, password_hash, display_name),
+                "INSERT INTO users (email, password_hash, first_name, last_name) VALUES (%s, %s, %s, %s)",
+                (email, password_hash, first_name, last_name),
             )
             conn.commit()
             return cur.lastrowid

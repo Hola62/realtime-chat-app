@@ -43,11 +43,15 @@ def register():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    display_name = (data.get("display_name") or "").strip() or None
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
 
     # Validation
     if not email or not password:
         return jsonify({"message": "email and password are required"}), 400
+
+    if not first_name or not last_name:
+        return jsonify({"message": "first name and last name are required"}), 400
 
     if not validate_email(email):
         return jsonify({"message": "invalid email format"}), 400
@@ -56,8 +60,11 @@ def register():
     if not is_valid:
         return jsonify({"message": error_msg}), 400
 
-    if display_name and len(display_name) > 255:
-        return jsonify({"message": "display name too long (max 255 characters)"}), 400
+    if len(first_name) > 100:
+        return jsonify({"message": "first name too long (max 100 characters)"}), 400
+
+    if len(last_name) > 100:
+        return jsonify({"message": "last name too long (max 100 characters)"}), 400
 
     # Check for existing user
     if get_user_by_email(email):
@@ -65,7 +72,7 @@ def register():
 
     # Create user
     password_hash = generate_password_hash(password)
-    user_id = create_user(email, password_hash, display_name)
+    user_id = create_user(email, password_hash, first_name, last_name)
     if not user_id:
         return jsonify({"message": "could not create user"}), 500
 
@@ -75,7 +82,12 @@ def register():
         jsonify(
             {
                 "message": "registered successfully",
-                "user": {"id": user_id, "email": email, "display_name": display_name},
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                },
                 "access_token": token,
             }
         ),
@@ -100,7 +112,8 @@ def login():
     profile = {
         "id": user["id"],
         "email": user["email"],
-        "display_name": user.get("display_name"),
+        "first_name": user.get("first_name"),
+        "last_name": user.get("last_name"),
     }
     return (
         jsonify({"message": "logged_in", "user": profile, "access_token": token}),

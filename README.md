@@ -83,15 +83,16 @@ Base URL: <http://127.0.0.1:5000>
 
 - POST /auth/register
 
-  - Body (JSON): { "email": string, "password": string, "display_name"?: string }
-  - 201: { message, user: { id, email, display_name }, access_token }
+  - Body (JSON): { "first_name": string, "last_name": string, "email": string, "password": string }
+  - 201: { message, user: { id, email, first_name, last_name }, access_token }
   - 400: missing/invalid fields; 409: email exists; 500: create failed
   - Password requirements: min 8 chars, uppercase, lowercase, number
+  - Name requirements: first_name and last_name are required (max 100 chars each)
 
 - POST /auth/login
 
   - Body (JSON): { "email": string, "password": string }
-  - 200: { message, user: { id, email, display_name }, access_token }
+  - 200: { message, user: { id, email, first_name, last_name }, access_token }
   - 400: missing fields; 401: invalid credentials
 
 - GET /auth/me
@@ -110,9 +111,11 @@ Base URL: <http://127.0.0.1:5000>
 2. Open `frontend/register.html` in your browser or use a simple HTTP server:
    - `python -m http.server 8000` (navigate to <http://localhost:8000/frontend/register.html>)
 3. Fill in the form:
-   - Email: valid format (e.g., test@example.com)
+   - First Name: required (e.g., John)
+   - Last Name: required (e.g., Doe)
+   - Email: valid format (e.g., john.doe@example.com)
    - Password: min 8 chars, uppercase, lowercase, number (e.g., TestPass123)
-   - Display Name: optional
+   - Confirm Password: must match password
 4. On success: redirects to chat.html with JWT stored in localStorage
 
 ### Notes
