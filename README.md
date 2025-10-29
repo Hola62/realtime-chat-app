@@ -113,7 +113,7 @@ Base URL: <http://127.0.0.1:5000>
 3. Fill in the form:
    - First Name: required (e.g., John)
    - Last Name: required (e.g., Doe)
-   - Email: valid format (e.g., john.doe@example.com)
+   - Email: valid format (e.g., `john.doe@example.com`)
    - Password: min 8 chars, uppercase, lowercase, number (e.g., TestPass123)
    - Confirm Password: must match password
 4. On success: redirects to chat.html with JWT stored in localStorage
