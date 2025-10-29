@@ -134,7 +134,7 @@ def delete_room(room_id: int):
         return False
 
 
-# Initialize the table on module import
+
 try:
     init_rooms_table()
 except Exception as e:

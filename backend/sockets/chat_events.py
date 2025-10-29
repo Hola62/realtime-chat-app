@@ -14,7 +14,7 @@ def token_required(f):
     def decorated(*args, **kwargs):
         token = None
 
-        # Get token from Socket.IO auth or query params
+        
         if hasattr(request, "args") and "token" in request.args:
             token = request.args.get("token")
 
@@ -24,17 +24,17 @@ def token_required(f):
             return None
 
         try:
-            # Decode JWT token
+            
             secret_key = os.getenv("JWT_SECRET_KEY", "change-me")
             payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-            user_id = payload.get("sub")  # Flask-JWT-Extended uses 'sub' for identity
+            user_id = payload.get("sub")  
 
             if not user_id:
                 emit("error", {"message": "Invalid token payload"})
                 disconnect()
                 return None
 
-            # Pass user_id to the decorated function
+            
             return f(user_id, *args, **kwargs)
         except jwt.ExpiredSignatureError:
             emit("error", {"message": "Token has expired"})
@@ -75,16 +75,16 @@ def register_socket_events(socketio):
             emit("error", {"message": "room_id is required"})
             return
 
-        # Verify room exists
+        
         room = get_room_by_id(room_id)
         if not room:
             emit("error", {"message": "Room not found"})
             return
 
-        # Join the room
+        
         join_room(str(room_id))
 
-        # Notify user
+        
         emit(
             "joined_room",
             {
@@ -94,7 +94,7 @@ def register_socket_events(socketio):
             },
         )
 
-        # Notify others in the room
+        
         emit(
             "user_joined",
             {
@@ -118,13 +118,13 @@ def register_socket_events(socketio):
             emit("error", {"message": "room_id is required"})
             return
 
-        # Leave the room
+        
         leave_room(str(room_id))
 
-        # Notify user
+        
         emit("left_room", {"room_id": room_id, "message": f"You left room {room_id}"})
 
-        # Notify others in the room
+        
         emit(
             "user_left",
             {
@@ -148,7 +148,7 @@ def register_socket_events(socketio):
             emit("error", {"message": "room_id and content are required"})
             return
 
-        # Validate content length
+        
         content = content.strip()
         if not content or len(content) > 5000:
             emit(
@@ -157,14 +157,14 @@ def register_socket_events(socketio):
             )
             return
 
-        # Save message to database
+        
         message = create_message(room_id, int(user_id), content)
 
         if not message:
             emit("error", {"message": "Failed to save message"})
             return
 
-        # Prepare message data for broadcasting
+        
         message_data = {
             "id": message["id"],
             "room_id": message["room_id"],
@@ -196,7 +196,7 @@ def register_socket_events(socketio):
             emit("error", {"message": "room_id is required"})
             return
 
-        # Broadcast typing status to others in the room
+        
         emit(
             "user_typing",
             {"user_id": user_id, "room_id": room_id, "is_typing": is_typing},
@@ -215,10 +215,10 @@ def register_socket_events(socketio):
             emit("error", {"message": "room_id is required"})
             return
 
-        # Fetch messages from database
+        
         messages = get_room_messages(room_id, limit)
 
-        # Format messages for client
+        
         formatted_messages = []
         for msg in messages:
             formatted_messages.append(

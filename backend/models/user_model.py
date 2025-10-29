@@ -68,7 +68,7 @@ def create_user(
             conn.commit()
             return cur.lastrowid
     except Error as e:
-        # Duplicate email error code in MySQL is 1062
+        
         if getattr(e, "errno", None) == 1062:
             print("Duplicate email attempted:", email)
             return None

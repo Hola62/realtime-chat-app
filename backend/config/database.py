@@ -1,11 +1,15 @@
 import os
 from typing import Optional
+from pathlib import Path
 
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from backend directory
+backend_dir = Path(__file__).parent.parent
+env_path = backend_dir / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 def _get_env(name: str, fallback: Optional[str] = None) -> Optional[str]:
@@ -47,14 +51,21 @@ def get_connection():
     database = _get_env("MYSQL_DB")
 
     try:
-        connection = mysql.connector.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database,
-            auth_plugin=os.getenv("MYSQL_AUTH_PLUGIN"),  # optional
-        )
+        # Build connection parameters (only include auth_plugin if it's set)
+        conn_params = {
+            "host": host,
+            "port": port,
+            "user": user,
+            "password": password,
+            "database": database,
+        }
+
+        # Only add auth_plugin if it's explicitly set in env
+        auth_plugin = os.getenv("MYSQL_AUTH_PLUGIN")
+        if auth_plugin:
+            conn_params["auth_plugin"] = auth_plugin
+
+        connection = mysql.connector.connect(**conn_params)
         return connection
     except Error as e:
         print("Error connecting to MySQL:", e)

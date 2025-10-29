@@ -8,8 +8,7 @@ from models.user_model import init_user_table, get_user_by_email, create_user
 
 auth_bp = Blueprint("auth", __name__)
 
-# Initialize table on module import (Flask 3.x compatible)
-# In production, use migrations instead
+
 try:
     init_user_table()
 except Exception as e:
@@ -46,7 +45,7 @@ def register():
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
 
-    # Validation
+    
     if not email or not password:
         return jsonify({"message": "email and password are required"}), 400
 
@@ -66,17 +65,17 @@ def register():
     if len(last_name) > 100:
         return jsonify({"message": "last name too long (max 100 characters)"}), 400
 
-    # Check for existing user
+    
     if get_user_by_email(email):
         return jsonify({"message": "email already registered"}), 409
 
-    # Create user
+    
     password_hash = generate_password_hash(password)
     user_id = create_user(email, password_hash, first_name, last_name)
     if not user_id:
         return jsonify({"message": "could not create user"}), 500
 
-    # Generate token
+    
     token = create_access_token(identity=str(user_id))
     return (
         jsonify(

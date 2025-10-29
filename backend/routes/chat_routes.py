@@ -12,7 +12,6 @@ def list_rooms():
     """Get all chat rooms."""
     rooms = get_all_rooms()
 
-    # Format rooms for response
     formatted_rooms = []
     for room in rooms:
         formatted_rooms.append(
@@ -45,20 +44,18 @@ def create_new_room():
 
     name = data.get("name", "").strip()
 
-    # Validate room name
+
     if not name:
         return jsonify({"error": "Room name is required"}), 400
 
     if len(name) > 100:
         return jsonify({"error": "Room name must be less than 100 characters"}), 400
 
-    # Create room
     room_id = create_room(name, int(user_id))
 
     if not room_id:
         return jsonify({"error": "Failed to create room"}), 500
 
-    # Fetch the created room
     room = get_room_by_id(room_id)
 
     return (
@@ -117,21 +114,20 @@ def get_room(room_id):
 @jwt_required()
 def get_messages(room_id):
     """Get message history for a room."""
-    # Check if room exists
+    
     room = get_room_by_id(room_id)
     if not room:
         return jsonify({"error": "Room not found"}), 404
 
-    # Get limit from query params (default 50)
     limit = request.args.get("limit", 50, type=int)
 
     if limit < 1 or limit > 200:
         return jsonify({"error": "Limit must be between 1 and 200"}), 400
 
-    # Fetch messages
+    
     messages = get_room_messages(room_id, limit)
 
-    # Format messages for response
+    
     formatted_messages = []
     for msg in messages:
         formatted_messages.append(
@@ -158,13 +154,13 @@ def delete_room_endpoint(room_id):
     """Delete a room (only creator can delete)."""
     user_id = get_jwt_identity()
 
-    # Check if room exists and user is creator
+    
     room = get_room_by_id(room_id)
     if not room:
         return jsonify({"error": "Room not found"}), 404
 
-    # Note: In production, you'd check if user_id matches created_by
-    # For now, we'll allow any authenticated user to delete
+    
+    
 
     success = delete_room(room_id)
 

@@ -252,10 +252,10 @@
         const submitBtn = document.getElementById('submitBtn');
         const alert = document.getElementById('alert');
 
-        // Email validation regex
+        
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-        // Password validation regex
+        
         const passwordValidation = {
             minLength: (pw) => pw.length >= 8,
             hasUpperCase: (pw) => /[A-Z]/.test(pw),
@@ -371,14 +371,14 @@
             return true;
         }
 
-        // Real-time validation
+        
         firstNameInput.addEventListener('blur', () => validateName('firstName', 'First name'));
         lastNameInput.addEventListener('blur', () => validateName('lastName', 'Last name'));
         emailInput.addEventListener('blur', validateEmail);
         passwordInput.addEventListener('blur', validatePassword);
         confirmPasswordInput.addEventListener('blur', validateConfirmPassword);
 
-        // Clear errors on input
+        
         firstNameInput.addEventListener('input', () => clearError('firstName'));
         lastNameInput.addEventListener('input', () => clearError('lastName'));
         emailInput.addEventListener('input', () => clearError('email'));
@@ -388,10 +388,10 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Clear previous alerts
+            
             alert.classList.remove('show');
 
-            // Validate all fields
+            
             const isFirstNameValid = validateName('firstName', 'First name');
             const isLastNameValid = validateName('lastName', 'Last name');
             const isEmailValid = validateEmail();
@@ -402,7 +402,7 @@
                 return;
             }
 
-            // Prepare data
+            
             const formData = {
                 first_name: firstNameInput.value.trim(),
                 last_name: lastNameInput.value.trim(),
@@ -410,7 +410,7 @@
                 password: passwordInput.value
             };
 
-            // Disable button and show loading
+            
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner"></span>Creating account...';
 
@@ -426,7 +426,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Success - store token and redirect
+                    
                     localStorage.setItem('access_token', data.access_token);
                     localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -436,7 +436,7 @@
                         window.location.href = 'chat.html';
                     }, 1500);
                 } else {
-                    // Error from server
+                    
                     showAlert(data.message || 'Registration failed. Please try again.');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Create Account';

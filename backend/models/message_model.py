@@ -52,7 +52,7 @@ def create_message(room_id: int, user_id: int, content: str):
         conn.commit()
         message_id = cursor.lastrowid
 
-        # Fetch the complete message with user info
+        
         cursor.execute(
             """
             SELECT m.id, m.room_id, m.user_id, m.content, m.timestamp,
@@ -97,7 +97,7 @@ def get_room_messages(room_id: int, limit: int = 50):
         messages = cursor.fetchall()
         cursor.close()
         conn.close()
-        # Return in chronological order (oldest first)
+        
         return list(reversed(messages))
     except mysql.connector.Error as err:
         print(f"Error fetching messages: {err}")
@@ -127,7 +127,7 @@ def delete_message(message_id: int):
         return False
 
 
-# Initialize the table on module import
+
 try:
     init_messages_table()
 except Exception as e:
