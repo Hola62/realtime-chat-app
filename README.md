@@ -118,6 +118,103 @@ Base URL: <http://127.0.0.1:5000>
    - Confirm Password: must match password
 4. On success: redirects to chat.html with JWT stored in localStorage
 
+## Week 3: Chat Backend (WebSocket & Rooms)
+
+### Database Schema
+
+**Rooms Table:**
+
+- `id` INT AUTO_INCREMENT PRIMARY KEY
+- `name` VARCHAR(100) NOT NULL
+- `created_by` INT (foreign key to users.id)
+- `created_at` TIMESTAMP
+
+**Messages Table:**
+
+- `id` INT AUTO_INCREMENT PRIMARY KEY
+- `room_id` INT (foreign key to rooms.id)
+- `user_id` INT (foreign key to users.id)
+- `content` TEXT NOT NULL
+- `timestamp` TIMESTAMP
+
+### REST API Endpoints
+
+#### Chat Rooms
+
+**GET /chat/rooms** - List all rooms
+
+- Auth: JWT required
+- Response: `{"rooms": [...]}`
+
+**POST /chat/rooms** - Create new room
+
+- Auth: JWT required
+- Body: `{"name": "Room Name"}`
+- Response: `{"message": "...", "room": {...}}`
+
+**GET /chat/rooms/:id** - Get room details
+
+- Auth: JWT required
+- Response: `{"room": {...}}`
+
+**GET /chat/rooms/:id/messages** - Get message history
+
+- Auth: JWT required
+- Query params: `limit` (1-200, default 50)
+- Response: `{"room_id": 1, "messages": [...]}`
+
+**DELETE /chat/rooms/:id** - Delete room
+
+- Auth: JWT required
+- Response: `{"message": "Room deleted successfully"}`
+
+### WebSocket Events
+
+**Connection:**
+
+```javascript
+// Connect with JWT token
+const socket = io("http://localhost:5000", {
+  query: { token: "YOUR_JWT_TOKEN" },
+});
+```
+
+**Events to Emit:**
+
+- `join_room` - `{room_id: 1}`
+- `leave_room` - `{room_id: 1}`
+- `send_message` - `{room_id: 1, content: 'Hello!'}`
+- `typing` - `{room_id: 1, is_typing: true}`
+- `get_messages` - `{room_id: 1, limit: 50}`
+
+**Events to Listen For:**
+
+- `connected` - Connection confirmation
+- `joined_room` - Successfully joined room
+- `user_joined` - Another user joined room
+- `user_left` - User left room
+- `new_message` - New message received
+- `user_typing` - User is typing
+- `messages_history` - Message history response
+- `error` - Error messages
+
+### Testing Chat Backend
+
+Run the test script:
+
+```bash
+python test_chat_backend.py
+```
+
+This tests:
+
+- Room creation and listing
+- Message history retrieval
+- REST API authentication
+- Displays WebSocket connection info
+
+For WebSocket testing, use a Socket.IO client or the frontend chat UI.
+
 ### Notes
 
 - JWT secret is configured via `backend/.env` (JWT_SECRET_KEY).

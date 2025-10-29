@@ -35,6 +35,21 @@ try:
 except Exception as e:
     print("Warning: failed to register health blueprint:", e)
 
+try:
+    from routes.chat_routes import chat_bp
+
+    app.register_blueprint(chat_bp, url_prefix="/chat")
+except Exception as e:
+    print("Warning: failed to register chat blueprint:", e)
+
+# Register Socket.IO events
+try:
+    from sockets.chat_events import register_socket_events
+
+    register_socket_events(socketio)
+except Exception as e:
+    print("Warning: failed to register socket events:", e)
+
 
 @app.route("/")
 def home():
