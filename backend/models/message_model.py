@@ -17,6 +17,7 @@ def init_messages_table():
                 room_id INT NOT NULL,
                 user_id INT NOT NULL,
                 content TEXT NOT NULL,
+                deleted BOOLEAN DEFAULT FALSE,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -27,6 +28,20 @@ def init_messages_table():
         """
         )
         conn.commit()
+
+        # Add deleted column to existing tables if it doesn't exist
+        try:
+            cursor.execute(
+                """
+                ALTER TABLE messages 
+                ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT FALSE
+                """
+            )
+            conn.commit()
+        except mysql.connector.Error:
+            # Column might already exist, ignore error
+            pass
+
         cursor.close()
         conn.close()
         return True
@@ -52,11 +67,10 @@ def create_message(room_id: int, user_id: int, content: str):
         conn.commit()
         message_id = cursor.lastrowid
 
-        
         cursor.execute(
             """
             SELECT m.id, m.room_id, m.user_id, m.content, m.timestamp,
-                   u.first_name, u.last_name, u.email
+                   u.first_name, u.last_name, u.email, u.avatar_url
             FROM messages m
             JOIN users u ON m.user_id = u.id
             WHERE m.id = %s
@@ -84,8 +98,8 @@ def get_room_messages(room_id: int, limit: int = 50):
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             """
-            SELECT m.id, m.room_id, m.user_id, m.content, m.timestamp,
-                   u.first_name, u.last_name, u.email
+            SELECT m.id, m.room_id, m.user_id, m.content, m.deleted, m.timestamp,
+                   u.first_name, u.last_name, u.email, u.avatar_url
             FROM messages m
             JOIN users u ON m.user_id = u.id
             WHERE m.room_id = %s
@@ -97,7 +111,7 @@ def get_room_messages(room_id: int, limit: int = 50):
         messages = cursor.fetchall()
         cursor.close()
         conn.close()
-        
+
         return list(reversed(messages))
     except mysql.connector.Error as err:
         print(f"Error fetching messages: {err}")
@@ -107,14 +121,17 @@ def get_room_messages(room_id: int, limit: int = 50):
 
 
 def delete_message(message_id: int):
-    """Delete a message by ID."""
+    """Mark a message as deleted by ID."""
     conn = get_connection()
     if not conn:
         return False
 
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM messages WHERE id = %s", (message_id,))
+        cursor.execute(
+            "UPDATE messages SET deleted = TRUE, content = '' WHERE id = %s",
+            (message_id,),
+        )
         conn.commit()
         affected = cursor.rowcount
         cursor.close()
@@ -125,7 +142,6 @@ def delete_message(message_id: int):
         if conn:
             conn.close()
         return False
-
 
 
 try:

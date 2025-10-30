@@ -45,7 +45,6 @@ def register():
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
 
-    
     if not email or not password:
         return jsonify({"message": "email and password are required"}), 400
 
@@ -65,17 +64,14 @@ def register():
     if len(last_name) > 100:
         return jsonify({"message": "last name too long (max 100 characters)"}), 400
 
-    
     if get_user_by_email(email):
         return jsonify({"message": "email already registered"}), 409
 
-    
     password_hash = generate_password_hash(password)
     user_id = create_user(email, password_hash, first_name, last_name)
     if not user_id:
         return jsonify({"message": "could not create user"}), 500
 
-    
     token = create_access_token(identity=str(user_id))
     return (
         jsonify(
@@ -124,4 +120,22 @@ def login():
 @jwt_required()
 def me():
     user_id = get_jwt_identity()
-    return jsonify({"id": user_id}), 200
+    # Get full user info from database
+    from models.user_model import get_user_by_id
+
+    user = get_user_by_id(int(user_id))
+
+    if not user:
+        return jsonify({"message": "user not found"}), 404
+
+    return (
+        jsonify(
+            {
+                "id": user["id"],
+                "email": user["email"],
+                "first_name": user.get("first_name"),
+                "last_name": user.get("last_name"),
+            }
+        ),
+        200,
+    )
