@@ -10,6 +10,15 @@ let isPrivateChat = false; // Track if we're in a private chat
 let recentDMs = []; // Persistent recent direct messages list
 let dmMetadata = {}; // Store unread counts, last message, etc. per user ID
 
+// Update page title dynamically
+function updatePageTitle(title) {
+    if (title) {
+        document.title = `${title} - Realtime Chat App`;
+    } else {
+        document.title = 'Chat - Realtime Chat App';
+    }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
@@ -420,6 +429,9 @@ function selectRoom(roomId, roomName) {
     // Update current room
     currentRoom = { id: roomId, name: roomName };
     document.getElementById('currentRoomName').textContent = roomName;
+
+    // Update page title with room name
+    updatePageTitle(roomName);
 
     // Clear only regular messages, keep system messages
     const container = document.getElementById('messagesContainer');
@@ -1055,6 +1067,9 @@ function startPrivateChat(user) {
 
     // Update chat header with user name and status
     document.getElementById('currentRoomName').textContent = `${user.first_name} ${user.last_name}`;
+
+    // Update page title with person's name
+    updatePageTitle(`${user.first_name} ${user.last_name}`);
 
     // Show online/offline status (will be updated by socket event)
     updatePrivateChatStatus('checking...');
