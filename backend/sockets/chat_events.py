@@ -9,6 +9,8 @@ from models.user_model import update_user_status, get_user_by_id
 from models.private_message_model import (
     create_private_message,
     get_private_messages,
+    mark_messages_as_read,
+    get_unread_count,
 )
 
 
@@ -428,6 +430,7 @@ def register_socket_events(socketio):
             "user_id": saved["sender_id"],
             "content": saved["content"],
             "deleted": saved.get("deleted", False),
+            "read_status": False,  # New message is always unread initially
             "timestamp": (
                 saved["timestamp"].isoformat() if saved.get("timestamp") else None
             ),
@@ -465,6 +468,7 @@ def register_socket_events(socketio):
                     "user_id": m["sender_id"],
                     "content": m["content"],
                     "deleted": m.get("deleted", False),
+                    "read_status": m.get("read_status", False),
                     "timestamp": (
                         m["timestamp"].isoformat() if m.get("timestamp") else None
                     ),
@@ -478,6 +482,17 @@ def register_socket_events(socketio):
             )
 
         emit("private_messages_history", {"room_id": room_id, "messages": formatted})
+
+        # Mark messages as read when history is fetched
+        mark_messages_as_read(room_id, user_id)
+
+        # Notify the other user that messages have been read
+        emit(
+            "messages_read",
+            {"room_id": room_id, "reader_id": user_id},
+            to=room_id,
+            skip_sid=request.sid,
+        )
 
     @socketio.on("private_typing")
     @token_required

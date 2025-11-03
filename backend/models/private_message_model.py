@@ -23,6 +23,7 @@ def init_private_messages_table() -> bool:
                 receiver_id INT NOT NULL,
                 content TEXT NOT NULL,
                 deleted BOOLEAN DEFAULT FALSE,
+                read_status BOOLEAN DEFAULT FALSE,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -33,6 +34,20 @@ def init_private_messages_table() -> bool:
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         )
+        conn.commit()
+
+        # Add read_status column to existing table if it doesn't exist
+        try:
+            cur.execute(
+                """
+                ALTER TABLE private_messages 
+                ADD COLUMN IF NOT EXISTS read_status BOOLEAN DEFAULT FALSE
+                """
+            )
+            conn.commit()
+        except Error:
+            # Column might already exist, ignore error
+            pass
         conn.commit()
         cur.close()
         conn.close()
@@ -94,7 +109,7 @@ def get_private_messages(room_key: str, limit: int = 50) -> List[Dict]:
         cur = conn.cursor(dictionary=True)
         cur.execute(
             """
-            SELECT pm.id, pm.room_key, pm.sender_id, pm.receiver_id, pm.content, pm.deleted, pm.timestamp,
+            SELECT pm.id, pm.room_key, pm.sender_id, pm.receiver_id, pm.content, pm.deleted, pm.read_status, pm.timestamp,
                    u.first_name, u.last_name, u.email, u.avatar_url
             FROM private_messages pm
             JOIN users u ON pm.sender_id = u.id
@@ -114,6 +129,76 @@ def get_private_messages(room_key: str, limit: int = 50) -> List[Dict]:
         if conn:
             conn.close()
         return []
+
+
+def mark_messages_as_read(room_key: str, user_id: int) -> bool:
+    """Mark all messages in a room as read for a specific user (receiver).
+
+    Args:
+        room_key: The private room key (e.g., 'private_1_2')
+        user_id: The ID of the user who is reading the messages
+
+    Returns:
+        True if successful, False otherwise
+    """
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE private_messages 
+            SET read_status = TRUE 
+            WHERE room_key = %s AND receiver_id = %s AND read_status = FALSE
+            """,
+            (room_key, user_id),
+        )
+        conn.commit()
+        affected = cur.rowcount
+        cur.close()
+        conn.close()
+        print(f"Marked {affected} messages as read in {room_key} for user {user_id}")
+        return True
+    except Error as e:
+        print("Error marking messages as read:", e)
+        if conn:
+            conn.close()
+        return False
+
+
+def get_unread_count(room_key: str, user_id: int) -> int:
+    """Get the count of unread messages for a user in a specific room.
+
+    Args:
+        room_key: The private room key
+        user_id: The ID of the user (receiver)
+
+    Returns:
+        Number of unread messages
+    """
+    conn = get_connection()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*) 
+            FROM private_messages 
+            WHERE room_key = %s AND receiver_id = %s AND read_status = FALSE
+            """,
+            (room_key, user_id),
+        )
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return count
+    except Error as e:
+        print("Error getting unread count:", e)
+        if conn:
+            conn.close()
+        return 0
 
 
 try:

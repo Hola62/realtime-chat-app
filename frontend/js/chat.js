@@ -276,6 +276,14 @@ function connectSocket(token) {
         console.log('Joined private chat:', data);
         showNotification(`Started private chat`, 'success');
     });
+
+    socket.on('messages_read', (data) => {
+        console.log('Messages marked as read:', data);
+        // Update all messages in the current DM to show as read
+        if (isPrivateChat && currentPrivateChat) {
+            updateMessagesReadStatus(true);
+        }
+    });
 }
 
 // Update connection status indicator
@@ -479,6 +487,15 @@ function displayMessage(message, animate = true) {
     const senderName = `${message.user.first_name} ${message.user.last_name}`;
     const time = formatTime(message.timestamp);
 
+    // Read status indicator for own messages in private chats
+    let readStatusHTML = '';
+    if (isOwn && isPrivateChat) {
+        const isRead = message.read_status === true;
+        const checkmark = isRead ? '✓✓' : '✓';
+        const readClass = isRead ? 'read' : '';
+        readStatusHTML = `<span class="message-read-status ${readClass}">${checkmark}</span>`;
+    }
+
     // Debug: Log avatar URL
     console.log('Message user data:', message.user);
     console.log('Avatar URL:', message.user.avatar_url);
@@ -493,7 +510,7 @@ function displayMessage(message, animate = true) {
         <div class="message-content">
             <div class="message-header">
                 <span class="message-sender">${escapeHtml(senderName)}</span>
-                <span class="message-time">${time}</span>
+                <span class="message-time">${time}${readStatusHTML}</span>
             </div>
             <div class="message-bubble" data-original-content="${escapeHtml(message.content)}">
                 ${escapeHtml(message.content)}
@@ -1303,6 +1320,23 @@ function scrollToBottom() {
     const el = document.getElementById('messagesContainer');
     if (!el) return;
     el.scrollTop = el.scrollHeight;
+}
+
+function updateMessagesReadStatus(isRead) {
+    // Update all own messages in the current chat to show read status
+    const container = document.getElementById('messagesContainer');
+    if (!container) return;
+
+    const ownMessages = container.querySelectorAll('.message.own .message-read-status');
+    ownMessages.forEach(statusEl => {
+        if (isRead) {
+            statusEl.textContent = '✓✓';
+            statusEl.classList.add('read');
+        } else {
+            statusEl.textContent = '✓';
+            statusEl.classList.remove('read');
+        }
+    });
 }
 
 function showNotification(message, type = 'info') {
