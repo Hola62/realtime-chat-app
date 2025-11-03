@@ -22,7 +22,7 @@
 
 **In DM List:**
 
-```
+```text
 ┌────────────────────────────────┐
 │ 👤 John Doe                 3  │ ← Unread count badge
 │     New message here!      2m  │
@@ -31,7 +31,7 @@
 
 **In Chat View (Your Sent Messages):**
 
-```
+```text
 You: Hello!                12:30 ✓   ← Sent, unread
 You: How are you?          12:31 ✓✓  ← Sent and read
 ```
@@ -81,6 +81,7 @@ ADD COLUMN read_status BOOLEAN DEFAULT FALSE;
 **New Server → Client Events:**
 
 - `messages_read` - Emitted when someone reads your messages
+
   ```javascript
   {
     room_id: "private_1_2",

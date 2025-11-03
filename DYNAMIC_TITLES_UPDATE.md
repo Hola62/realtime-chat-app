@@ -58,7 +58,7 @@ When you're chatting with someone, the title shows their name:
 
 ### Scenario 1: Multiple Rooms Open
 
-```
+```text
 Tab 1: General - Realtime Chat App
 Tab 2: Tech Talk - Realtime Chat App
 Tab 3: Random - Realtime Chat App
@@ -66,7 +66,7 @@ Tab 3: Random - Realtime Chat App
 
 ### Scenario 2: DM Conversations
 
-```
+```text
 Tab 1: John Doe - Realtime Chat App
 Tab 2: Jane Smith - Realtime Chat App
 Tab 3: Profile - Realtime Chat App
@@ -74,7 +74,7 @@ Tab 3: Profile - Realtime Chat App
 
 ### Scenario 3: Mixed
 
-```
+```text
 Tab 1: General - Realtime Chat App (room)
 Tab 2: Sarah Johnson - Realtime Chat App (DM)
 Tab 3: Login - Realtime Chat App (login page)
