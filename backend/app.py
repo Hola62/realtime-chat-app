@@ -7,7 +7,9 @@ from flask_socketio import SocketIO
 from flask_cors import CORS
 from pathlib import Path
 
-load_dotenv()
+# Load .env from project root (parent directory)
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev_secret")
@@ -61,6 +63,8 @@ try:
     register_socket_events(socketio)
 except Exception as e:
     print("Warning: failed to register socket events:", e)
+
+# (AI events removed)
 
 
 @app.route("/")

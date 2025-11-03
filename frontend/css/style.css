@@ -1,0 +1,123 @@
+/* User Search Bar Styles */
+.user-search-bar {
+    padding: 16px 20px 0 20px;
+}
+
+#userSearchInput {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #3b82f6;
+    font-size: 14px;
+    background: #1e293b;
+    color: #f1f5f9;
+    margin-bottom: 8px;
+    outline: none;
+    transition: border 0.2s;
+}
+
+#userSearchInput:focus {
+    border: 1.5px solid #2563eb;
+    background: #0f172a;
+}
+
+#userSearchResults {
+    padding: 0 20px 8px 20px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.user-search-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.user-search-result:last-child {
+    border-bottom: none;
+}
+
+.user-search-name {
+    color: #f1f5f9;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.user-search-message-btn {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.user-search-message-btn:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+}
+
+/* Sidebar User Info & Avatar */
+.user-info {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#userAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #2563eb;
+    border: 2px solid #3b82f6;
+}
+
+/* Sidebar Logout Button */
+.logout-btn {
+    width: 90%;
+    margin: 18px 5%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* AI Assistant Button */
+.ai-assistant-wrap {
+    padding: 8px 20px 0 20px;
+}
+
+.ai-assistant-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ai-assistant-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+}

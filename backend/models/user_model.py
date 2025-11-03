@@ -195,3 +195,51 @@ def update_user_profile(
         return False
     finally:
         conn.close()
+
+
+def search_users_by_name(name: str, exclude_user_id: Optional[int] = None) -> list:
+    """Search users by first or last name (case-insensitive, partial match). Optionally exclude a user by ID."""
+    conn = get_connection()
+    if not conn:
+        return []
+    try:
+        with conn.cursor(dictionary=True) as cur:
+            query = "SELECT id, first_name, last_name, email, avatar_url FROM users WHERE (first_name LIKE %s OR last_name LIKE %s)"
+            params = [f"%{name}%", f"%{name}%"]
+            if exclude_user_id:
+                query += " AND id != %s"
+                params.append(exclude_user_id)
+            cur.execute(query, tuple(params))
+            return cur.fetchall()
+    except Error as e:
+        print("Error searching users by name:", e)
+        return []
+    finally:
+        conn.close()
+
+
+def update_user_password(user_id: int, new_password_hash: str) -> bool:
+    """Update user's password hash by user ID.
+
+    Args:
+        user_id: The user's ID
+        new_password_hash: The new hashed password (from werkzeug.generate_password_hash)
+
+    Returns: True on success, False on failure
+    """
+    conn = get_connection()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET password_hash=%s WHERE id=%s",
+                (new_password_hash, user_id),
+            )
+            conn.commit()
+            return cur.rowcount == 1
+    except Error as e:
+        print("Error updating user password:", e)
+        return False
+    finally:
+        conn.close()

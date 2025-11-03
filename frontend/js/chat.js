@@ -5,10 +5,18 @@ let currentRoom = null;
 let currentUser = null;
 let typingTimeout = null;
 let roomMemberCounts = {}; // Track member counts for each room
+let currentPrivateChat = null; // Track current private chat user
+let isPrivateChat = false; // Track if we're in a private chat
+let recentDMs = []; // Persistent recent direct messages list
+let dmMetadata = {}; // Store unread counts, last message, etc. per user ID
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
+    // Initialize recent DMs from storage and render
+    loadRecentDMs();
+    loadDMMetadata();
+    renderRecentDMs();
 });
 
 // Check if user is authenticated
@@ -59,6 +67,25 @@ async function fetchUserInfo(token) {
 
             document.getElementById('userName').textContent = `${data.first_name} ${data.last_name}`;
             document.getElementById('userEmail').textContent = data.email;
+
+            // Set user avatar
+            const avatarEl = document.getElementById('userAvatar');
+            if (avatarEl) {
+                if (data.avatar_url) {
+                    avatarEl.src = `${API_URL}${data.avatar_url}`;
+                } else {
+                    // Show initials if no avatar
+                    const initials = `${data.first_name[0]}${data.last_name[0]}`.toUpperCase();
+                    avatarEl.alt = initials;
+                    avatarEl.style.display = 'flex';
+                    avatarEl.style.alignItems = 'center';
+                    avatarEl.style.justifyContent = 'center';
+                    avatarEl.style.fontSize = '16px';
+                    avatarEl.style.fontWeight = 'bold';
+                    avatarEl.style.color = 'white';
+                }
+            }
+
             console.log('User info displayed successfully');
         } else {
             // Token invalid, redirect to login
@@ -187,10 +214,67 @@ function connectSocket(token) {
         showTypingIndicator(data.is_typing);
     });
 
+    // Private chat typing indicator
+    socket.on('private_user_typing', (data) => {
+        console.log('Private chat - user typing:', data);
+        if (isPrivateChat && currentPrivateChat && data.user_id == currentPrivateChat.id) {
+            showTypingIndicator(data.is_typing);
+        }
+    });
+
+    // User status updates (online/offline)
+    socket.on('user_status_update', (data) => {
+        console.log('User status update:', data);
+        if (isPrivateChat && currentPrivateChat && data.user_id == currentPrivateChat.id) {
+            updatePrivateChatStatus(data.status);
+        }
+    });
+
+    // Response to status check
+    socket.on('user_status_response', (data) => {
+        console.log('User status response:', data);
+        if (isPrivateChat && currentPrivateChat && data.user_id == currentPrivateChat.id) {
+            updatePrivateChatStatus(data.status);
+        }
+    });
+
     // Error handling
     socket.on('error', (data) => {
         console.error('Socket error:', data);
         showNotification(data.message || 'An error occurred', 'error');
+    });
+
+    // (AI removed)
+
+    // Private chat events
+    socket.on('private_message', (message) => {
+        console.log('Private message received:', message);
+        // Ensure the sender is added to recent DM list (unless it's me)
+        if (message && message.user && message.user_id !== (currentUser && currentUser.id)) {
+            addRecentDM({
+                id: message.user_id,
+                first_name: message.user.first_name,
+                last_name: message.user.last_name,
+                avatar_url: message.user.avatar_url
+            });
+            // Update metadata: last message and increment unread if not viewing this DM
+            updateDMMetadata(message.user_id, message.content, message.timestamp, !isPrivateChat || currentPrivateChat?.id !== message.user_id);
+        }
+        if (isPrivateChat && currentPrivateChat) {
+            displayMessage(message);
+        }
+    });
+
+    socket.on('private_messages_history', (data) => {
+        console.log('Private messages history received:', data.messages.length);
+        if (isPrivateChat && currentPrivateChat) {
+            displayMessageHistory(data.messages);
+        }
+    });
+
+    socket.on('joined_private_chat', (data) => {
+        console.log('Joined private chat:', data);
+        showNotification(`Started private chat`, 'success');
     });
 }
 
@@ -299,6 +383,14 @@ function selectRoom(roomId, roomName) {
     console.log('=== Selecting Room ===');
     console.log('New room:', roomId, roomName);
     console.log('Previous room:', currentRoom);
+
+    // Exit private chat mode if active
+    if (isPrivateChat && currentPrivateChat) {
+        const privateRoomId = getPrivateRoomId(currentUser.id, currentPrivateChat.id);
+        socket.emit('leave_private_chat', { room_id: privateRoomId });
+        isPrivateChat = false;
+        currentPrivateChat = null;
+    }
 
     // Leave current room if any
     if (currentRoom) {
@@ -465,21 +557,35 @@ function sendMessage(event) {
     const input = document.getElementById('messageInput');
     const content = input.value.trim();
 
-    if (!content || !currentRoom) {
+    if (!content) {
         return;
     }
 
-    // Emit message via Socket.IO
-    socket.emit('send_message', {
-        room_id: currentRoom.id,
-        content: content
-    });
+    // Check if we're in private chat or room chat
+    if (isPrivateChat && currentPrivateChat) {
+        // Regular private chat only (AI removed)
+        const privateRoomId = getPrivateRoomId(currentUser.id, currentPrivateChat.id);
+        socket.emit('send_private_message', {
+            room_id: privateRoomId,
+            other_user_id: currentPrivateChat.id,
+            content: content
+        });
+        // Update metadata for sent message (unread=false since user is viewing)
+        updateDMMetadata(currentPrivateChat.id, content, new Date().toISOString(), false);
+    } else if (currentRoom) {
+        // Send room message
+        socket.emit('send_message', {
+            room_id: currentRoom.id,
+            content: content
+        });
+        // Stop typing indicator
+        socket.emit('typing', { room_id: currentRoom.id, is_typing: false });
+    } else {
+        return;
+    }
 
     // Clear input
     input.value = '';
-
-    // Stop typing indicator
-    socket.emit('typing', { room_id: currentRoom.id, is_typing: false });
 }
 
 // Show message context menu
@@ -692,18 +798,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (input) {
         input.addEventListener('input', () => {
-            if (!currentRoom) return;
-
-            // Send typing indicator
-            socket.emit('typing', { room_id: currentRoom.id, is_typing: true });
-
-            // Clear existing timeout
-            clearTimeout(typingTimeout);
-
-            // Set new timeout to stop typing indicator
-            typingTimeout = setTimeout(() => {
-                socket.emit('typing', { room_id: currentRoom.id, is_typing: false });
-            }, 2000);
+            // Handle typing indicator for private chats
+            if (isPrivateChat && currentPrivateChat) {
+                const privateRoomId = getPrivateRoomId(currentUser.id, currentPrivateChat.id);
+                socket.emit('private_typing', {
+                    room_id: privateRoomId,
+                    other_user_id: currentPrivateChat.id,
+                    is_typing: true
+                });
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('private_typing', {
+                        room_id: privateRoomId,
+                        other_user_id: currentPrivateChat.id,
+                        is_typing: false
+                    });
+                }, 2000);
+            }
+            // Handle typing indicator for room chats
+            else if (currentRoom) {
+                socket.emit('typing', { room_id: currentRoom.id, is_typing: true });
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('typing', { room_id: currentRoom.id, is_typing: false });
+                }, 2000);
+            }
         });
     }
 });
@@ -831,99 +950,376 @@ function updateUserStatusUI(userId, status, user) {
     // Can be used to update user list, show green/gray dots next to names, etc.
 }
 
-// Utility functions
-function getInitials(firstName, lastName) {
-    return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-}
-
-function formatTime(timestamp) {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-
-    // Less than 1 minute
-    if (diff < 60000) {
-        return 'Just now';
-    }
-
-    // Less than 1 hour
-    if (diff < 3600000) {
-        const minutes = Math.floor(diff / 60000);
-        return `${minutes}m ago`;
-    }
-
-    // Today
-    if (date.toDateString() === now.toDateString()) {
-        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    }
-
-    // This week
-    if (diff < 604800000) {
-        return date.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-    }
-
-    // Older
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function scrollToBottom() {
-    const container = document.getElementById('messagesContainer');
-    setTimeout(() => {
-        container.scrollTop = container.scrollHeight;
-    }, 100);
-}
-
-function showNotification(message, type = 'info') {
-    // Simple notification - can be enhanced with a toast library
-    console.log(`[${type.toUpperCase()}] ${message}`);
-
-    // You can replace this with a proper toast notification
-    const color = type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : '#2196f3';
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${color};
-        color: white;
-        padding: 15px 20px;
-        border-radius: 5px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000;
-        animation: slideIn 0.3s ease-out;
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// Close modal on outside click
-window.addEventListener('click', (event) => {
-    const modal = document.getElementById('createRoomModal');
-    if (event.target === modal) {
-        closeCreateRoomModal();
-    }
-});
-
-// Enter key to create room
+// --- USER SEARCH LOGIC ---
 document.addEventListener('DOMContentLoaded', () => {
-    const roomNameInput = document.getElementById('roomNameInput');
-    if (roomNameInput) {
-        roomNameInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
-                createRoom();
+    // User search bar logic
+    const userSearchInput = document.getElementById('userSearchInput');
+    const userSearchResults = document.getElementById('userSearchResults');
+    let userSearchTimeout = null;
+
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            clearTimeout(userSearchTimeout);
+            if (query.length < 2) {
+                userSearchResults.innerHTML = '';
+                return;
             }
+            userSearchTimeout = setTimeout(() => {
+                searchUsers(query);
+            }, 300);
+        });
+    }
+
+    async function searchUsers(query) {
+        // Use new backend endpoint for searching users
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_URL}/profile/search_users?name=${encodeURIComponent(query)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Failed to fetch users');
+            const data = await response.json();
+            renderUserSearchResults(data.users || []);
+        } catch (err) {
+            userSearchResults.innerHTML = '<div style="color:#f87171;padding:8px;">Error searching users</div>';
+        }
+    }
+
+    function renderUserSearchResults(users) {
+        if (!users.length) {
+            userSearchResults.innerHTML = '<div style="color:#94a3b8;padding:8px;">No users found</div>';
+            return;
+        }
+        userSearchResults.innerHTML = users.map(user => `
+            <div class="user-search-result">
+                <span class="user-search-name">${user.first_name} ${user.last_name}</span>
+                <button class="user-search-message-btn" data-user-id="${user.id}">Message</button>
+            </div>
+        `).join('');
+        // Add click handlers
+        userSearchResults.querySelectorAll('.user-search-message-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const userId = btn.getAttribute('data-user-id');
+                const user = users.find(u => u.id == userId);
+                if (user) startPrivateChat(user);
+            });
         });
     }
 });
+
+// Start a private chat with a user
+function startPrivateChat(user) {
+    console.log('Starting private chat with:', user);
+
+    // Leave current room if any
+    if (currentRoom) {
+        socket.emit('leave_room', { room_id: currentRoom.id });
+        currentRoom = null;
+    }
+
+    // Set private chat mode
+    isPrivateChat = true;
+    currentPrivateChat = user;
+
+    // Clear room selection
+    document.querySelectorAll('.room-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    // Also clear any active DM selection
+    document.querySelectorAll('.dm-item').forEach(item => item.classList.remove('active'));
+    // Highlight this user in the DM list
+    setActiveDM(user.id);
+
+    // Hide welcome screen, show chat area
+    document.getElementById('welcomeScreen').style.display = 'none';
+    const chatArea = document.getElementById('chatArea');
+    chatArea.className = 'chat-area-visible';
+
+    // Update chat header with user name and status
+    document.getElementById('currentRoomName').textContent = `${user.first_name} ${user.last_name}`;
+
+    // Show online/offline status (will be updated by socket event)
+    updatePrivateChatStatus('checking...');
+
+    // Clear messages
+    const container = document.getElementById('messagesContainer');
+    const regularMessages = container.querySelectorAll('.message');
+    regularMessages.forEach(msg => msg.remove());
+
+    // Join private Socket.IO room
+    const privateRoomId = getPrivateRoomId(currentUser.id, user.id);
+    console.log('Joining private room:', privateRoomId);
+    socket.emit('join_private_chat', {
+        room_id: privateRoomId,
+        other_user_id: user.id
+    });
+
+    // Request user status
+    socket.emit('check_user_status', { user_id: user.id });
+
+    // Load private message history
+    socket.emit('get_private_messages', {
+        room_id: privateRoomId,
+        other_user_id: user.id,
+        limit: 50
+    });
+
+    // Persist in recent DMs and re-render list
+    addRecentDM(user);
+
+    // Clear search
+    document.getElementById('userSearchInput').value = '';
+    document.getElementById('userSearchResults').innerHTML = '';
+
+    // Reset unread count for this DM
+    clearUnreadForDM(user.id);
+}
+
+// Start a private chat with the AI assistant
+// (startAiChat removed)
+
+// Update private chat status indicator
+function updatePrivateChatStatus(status) {
+    const statusEl = document.getElementById('connectionStatus');
+    if (isPrivateChat && currentPrivateChat) {
+        if (status === 'online') {
+            statusEl.innerHTML = '● Online';
+            statusEl.className = 'chat-status status-online';
+        } else if (status === 'offline') {
+            statusEl.innerHTML = '● Offline';
+            statusEl.className = 'chat-status';
+            statusEl.style.color = '#94a3b8';
+        } else {
+            statusEl.innerHTML = `● ${status}`;
+            statusEl.className = 'chat-status';
+            statusEl.style.color = '#94a3b8';
+        }
+    }
+}
+
+// Get a consistent private room ID for two users
+function getPrivateRoomId(userId1, userId2) {
+    // Always use lower ID first to ensure consistency
+    const ids = [parseInt(userId1), parseInt(userId2)].sort((a, b) => a - b);
+    return `private_${ids[0]}_${ids[1]}`;
+}
+
+// ======================
+// Recent DMs persistence
+// ======================
+
+function loadRecentDMs() {
+    try {
+        const raw = localStorage.getItem('recent_dms');
+        const list = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(list)) {
+            recentDMs = list;
+        } else {
+            recentDMs = [];
+        }
+    } catch {
+        recentDMs = [];
+    }
+    // Remove self if present
+    if (currentUser) {
+        recentDMs = recentDMs.filter(u => u && u.id !== currentUser.id);
+    }
+}
+
+function saveRecentDMs() {
+    try {
+        localStorage.setItem('recent_dms', JSON.stringify(recentDMs.slice(0, 20)));
+    } catch { }
+}
+
+function addRecentDM(user) {
+    if (!user || !user.id) return;
+    if (currentUser && user.id === currentUser.id) return; // skip self
+    // Deduplicate by id, move to front
+    const id = parseInt(user.id);
+    const existingIdx = recentDMs.findIndex(u => parseInt(u.id) === id);
+    if (existingIdx !== -1) {
+        recentDMs.splice(existingIdx, 1);
+    }
+    recentDMs.unshift({
+        id: id,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        avatar_url: user.avatar_url || null
+    });
+    // Cap size
+    if (recentDMs.length > 20) recentDMs.length = 20;
+    saveRecentDMs();
+    renderRecentDMs();
+}
+
+// DM Metadata (unread count, last message, time)
+function loadDMMetadata() {
+    try {
+        const raw = localStorage.getItem('dm_metadata');
+        dmMetadata = raw ? JSON.parse(raw) : {};
+    } catch {
+        dmMetadata = {};
+    }
+}
+
+function saveDMMetadata() {
+    try {
+        localStorage.setItem('dm_metadata', JSON.stringify(dmMetadata));
+    } catch { }
+}
+
+function updateDMMetadata(userId, lastMessage, timestamp, incrementUnread = false) {
+    const uid = String(userId);
+    if (!dmMetadata[uid]) {
+        dmMetadata[uid] = { unread: 0, lastMessage: '', lastTime: null };
+    }
+    dmMetadata[uid].lastMessage = (lastMessage || '').substring(0, 50);
+    dmMetadata[uid].lastTime = timestamp;
+    if (incrementUnread) {
+        dmMetadata[uid].unread = (dmMetadata[uid].unread || 0) + 1;
+    }
+    saveDMMetadata();
+    renderRecentDMs();
+}
+
+function clearUnreadForDM(userId) {
+    const uid = String(userId);
+    if (dmMetadata[uid]) {
+        dmMetadata[uid].unread = 0;
+        saveDMMetadata();
+        renderRecentDMs();
+    }
+}
+
+function formatRelativeTime(ts) {
+    if (!ts) return '';
+    try {
+        const msgDate = new Date(ts);
+        const now = new Date();
+        const diffMs = now - msgDate;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'now';
+        if (diffMins < 60) return `${diffMins}m`;
+        const diffHrs = Math.floor(diffMins / 60);
+        if (diffHrs < 24) return `${diffHrs}h`;
+        const diffDays = Math.floor(diffHrs / 24);
+        if (diffDays < 7) return `${diffDays}d`;
+        return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch {
+        return '';
+    }
+}
+
+function renderRecentDMs() {
+    const el = document.getElementById('dmList');
+    if (!el) return;
+    if (!recentDMs.length) {
+        el.innerHTML = '<div style="color:#94a3b8;padding:8px 16px;">No direct messages yet</div>';
+        return;
+    }
+    el.innerHTML = recentDMs.map(u => {
+        const initials = getInitials(u.first_name, u.last_name);
+        const name = `${escapeHtml(u.first_name)} ${escapeHtml(u.last_name)}`.trim();
+        const avatar = u.avatar_url ? `<img src="${API_URL}${u.avatar_url}" alt="${name}" onerror="this.parentElement.textContent='${initials}'">` : initials;
+
+        const uid = String(u.id);
+        const meta = dmMetadata[uid] || { unread: 0, lastMessage: '', lastTime: null };
+        const unreadBadge = meta.unread > 0 ? `<span class="dm-unread">${meta.unread}</span>` : '';
+        const preview = meta.lastMessage ? escapeHtml(meta.lastMessage) : 'No messages yet';
+        const timeStr = formatRelativeTime(meta.lastTime);
+
+        return `
+            <div class="dm-item" data-user-id="${u.id}">
+                <div class="dm-avatar">${avatar}</div>
+                <div class="dm-info">
+                    <div class="dm-name">${name || 'Unknown User'}</div>
+                    <div class="dm-preview">${preview}</div>
+                </div>
+                <div class="dm-meta">
+                    <div class="dm-time">${timeStr}</div>
+                    ${unreadBadge}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Click handlers
+    el.querySelectorAll('.dm-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const uid = parseInt(item.getAttribute('data-user-id'));
+            const u = recentDMs.find(x => parseInt(x.id) === uid);
+            if (u) startPrivateChat(u);
+        });
+    });
+
+    // Maintain active highlight if applicable
+    if (isPrivateChat && currentPrivateChat) {
+        setActiveDM(currentPrivateChat.id);
+    }
+}
+
+function setActiveDM(userId) {
+    document.querySelectorAll('.dm-item').forEach(i => i.classList.remove('active'));
+    const item = document.querySelector(`.dm-item[data-user-id="${userId}"]`);
+    if (item) item.classList.add('active');
+}
+
+// ======================
+// Helpers (fix undefined)
+// ======================
+
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getInitials(first, last) {
+    const f = (first || '').trim();
+    const l = (last || '').trim();
+    const fi = f ? f[0].toUpperCase() : '';
+    const li = l ? l[0].toUpperCase() : '';
+    return (fi + li) || '??';
+}
+
+function formatTime(ts) {
+    try {
+        if (!ts) return '';
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return '';
+        const hh = d.getHours().toString().padStart(2, '0');
+        const mm = d.getMinutes().toString().padStart(2, '0');
+        return `${hh}:${mm}`;
+    } catch { return ''; }
+}
+
+function scrollToBottom() {
+    const el = document.getElementById('messagesContainer');
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+}
+
+function showNotification(message, type = 'info') {
+    // Lightweight toast
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: 24px; padding: 10px 16px; border-radius: 8px;
+        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+        color: #fff; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        z-index: 10000; opacity: 0; transition: opacity .2s ease-in;
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = '1'; });
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 250);
+    }, 2000);
+}

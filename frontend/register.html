@@ -434,7 +434,7 @@
                     body: JSON.stringify(formData)
                 });
 
-                const data = await response.json();
+                const data = await response.json().catch(() => ({}));
 
                 if (response.ok) {
 
@@ -447,8 +447,24 @@
                         window.location.href = 'chat.html';
                     }, 1500);
                 } else {
+                    // Handle known backend errors explicitly
+                    if (response.status === 409 && (data.message || '').toLowerCase().includes('email')) {
+                        // Email already registered
+                        showError('email', 'Email already registered. Try signing in.');
+                        showAlert('Email already registered. Try signing in.', 'error');
+                        emailInput.focus();
+                    } else if (response.status === 400 && data.message) {
+                        // Validation error from backend – try to map to a field
+                        const msg = data.message.toLowerCase();
+                        if (msg.includes('first name')) showError('firstName', data.message);
+                        else if (msg.includes('last name')) showError('lastName', data.message);
+                        else if (msg.includes('email')) showError('email', data.message);
+                        else if (msg.includes('password')) showError('password', data.message);
+                        else showAlert(data.message, 'error');
+                    } else {
+                        showAlert(data.message || 'Registration failed. Please try again.');
+                    }
 
-                    showAlert(data.message || 'Registration failed. Please try again.');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Create Account';
                 }

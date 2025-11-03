@@ -6,7 +6,12 @@ from werkzeug.utils import secure_filename
 import os
 from pathlib import Path
 
-from models.user_model import get_user_by_id, update_user_profile, update_user_avatar
+from models.user_model import (
+    get_user_by_id,
+    update_user_profile,
+    update_user_avatar,
+    search_users_by_name,
+)
 
 profile_bp = Blueprint("profile", __name__)
 
@@ -193,3 +198,16 @@ def get_user_profile(user_id):
         ),
         200,
     )
+
+
+@profile_bp.route("/search_users", methods=["GET"])
+@jwt_required()
+def search_users():
+    """Search users by name (for private chat)."""
+    user_id = get_jwt_identity()
+    name = request.args.get("name", "").strip()
+    if not name or len(name) < 2:
+        return jsonify({"users": []})
+
+    users = search_users_by_name(name, exclude_user_id=int(user_id))
+    return jsonify({"users": users})

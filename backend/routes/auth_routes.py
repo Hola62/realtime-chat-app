@@ -3,7 +3,12 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
-from models.user_model import init_user_table, get_user_by_email, create_user
+from models.user_model import (
+    init_user_table,
+    get_user_by_email,
+    create_user,
+    update_user_password,
+)
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -35,6 +40,82 @@ def validate_password(password: str) -> tuple[bool, str]:
     if not re.search(r"[0-9]", password):
         return False, "password must contain at least one number"
     return True, ""
+
+
+@auth_bp.route("/forgot", methods=["POST"])
+def forgot_password():
+    """Reset password after confirming basic user details.
+
+    Expected JSON payload:
+    {
+        "email": "user@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "new_password": "Password123"
+    }
+
+    Security note: This is a simplified demo flow that matches on first/last name.
+    For production, use email verification with OTP links.
+    """
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
+    new_password = data.get("new_password") or ""
+
+    if not email or not first_name or not last_name or not new_password:
+        return (
+            jsonify(
+                {
+                    "message": "email, first_name, last_name and new_password are required"
+                }
+            ),
+            400,
+        )
+
+    if not validate_email(email):
+        return jsonify({"message": "invalid email format"}), 400
+
+    ok, msg = validate_password(new_password)
+    if not ok:
+        return jsonify({"message": msg}), 400
+
+    user = get_user_by_email(email)
+    if not user:
+        # To avoid email enumeration, return generic message
+        return jsonify({"message": "details do not match our records"}), 400
+
+    # Compare names case-insensitively
+    if (
+        user.get("first_name", "").strip().lower() != first_name.lower()
+        or user.get("last_name", "").strip().lower() != last_name.lower()
+    ):
+        return jsonify({"message": "details do not match our records"}), 400
+
+    from werkzeug.security import generate_password_hash
+
+    pw_hash = generate_password_hash(new_password)
+    if not update_user_password(int(user["id"]), pw_hash):
+        return jsonify({"message": "could not reset password"}), 500
+
+    # Optional: sign them in immediately
+    token = create_access_token(identity=str(user["id"]))
+    profile = {
+        "id": user["id"],
+        "email": user["email"],
+        "first_name": user.get("first_name"),
+        "last_name": user.get("last_name"),
+    }
+    return (
+        jsonify(
+            {
+                "message": "password reset successful",
+                "user": profile,
+                "access_token": token,
+            }
+        ),
+        200,
+    )
 
 
 @auth_bp.route("/register", methods=["POST"])

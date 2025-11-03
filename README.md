@@ -1,53 +1,108 @@
 # Realtime Chat App
 
-## Overview
+🚀 A modern, real-time chat application with a professional UI, built with Flask, Socket.IO, and MySQL.
 
-- Goal: Build a responsive real-time chat web app where users register, log in, create/join rooms, and exchange instant messages.
-- Stack: Flask + Flask-SocketIO (Python), MySQL, JWT auth, HTML/CSS/JS frontend.
-- This README focuses on Week 1 deliverables (project setup) and how to run the project locally on Windows.
+![Chat App Demo](https://img.shields.io/badge/Status-Live-success)
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Flask](https://img.shields.io/badge/Flask-3.1.2-green)
+![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange)
 
-## Monorepo Structure
+## ✨ Features
 
-- backend/ — Flask app, Socket.IO events, routes, models, DB config
-- frontend/ — Static HTML/CSS/JS for chat UI
+- 💬 **Real-time Messaging** - Instant message delivery with Socket.IO
+- 👥 **User Authentication** - Secure JWT-based login and registration
+- 🎨 **Professional UI** - Modern design with Inter font and beautiful gradients
+- 🏠 **Chat Rooms** - Create, join, and manage multiple chat rooms
+- 👤 **User Profiles** - Upload avatars and manage profile information
+- 🔄 **Message Persistence** - All messages saved to database
+- 🗑️ **Message Deletion** - Soft delete with "This message was deleted" placeholder
+- 👀 **Typing Indicators** - See when others are typing
+- 📊 **Member Count** - Real-time room member tracking
+- 🎯 **Independent Scrolling** - Smooth scrolling for sidebar and messages
+- 🔒 **Secure** - Password hashing and JWT authentication
 
-## Prerequisites
+## 🎥 Demo
 
-- Python 3.10+ installed
-- MySQL 8+ running locally (or a remote MySQL instance)
+**Live Demo**: Currently running locally (see Quick Start below)
+
+**Screenshots**:
+- Modern login/register pages with gradient backgrounds
+- Professional dark sidebar with room management
+- Clean message interface with avatars
+- Profile management with avatar upload
+
+## 📋 Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- MySQL 8+
 - Git
 
-## Environment Setup (Windows, PowerShell)
+### Installation & Running
 
-1. Clone repo and create a virtual environment
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Hola62/realtime-chat-app.git
+   cd realtime-chat-app
+   ```
 
-   - git clone REPO_URL
-   - cd realtime-chat-app
-   - python -m venv .venv
-   - .\.venv\Scripts\Activate.ps1
+2. **Set up virtual environment**
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
 
-2. Install dependencies
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-   - pip install -r requirements.txt
+4. **Configure environment**
+   - Copy `backend/.env.example` to `backend/.env`
+   - Update MySQL credentials in `.env`
 
-3. Configure environment variables
+5. **Initialize database**
+   ```bash
+   python setup_database.py
+   ```
 
-   - Copy backend/.env.example to backend/.env and fill in values
-   - Ensure your MySQL server is reachable and the database exists
+6. **Start the application**
+   ```bash
+   python start_servers.py
+   ```
 
-4. Initialize the database
+7. **Access the app**
+   - Frontend: http://localhost:8000
+   - Backend API: http://localhost:5000
 
-   - Create a MySQL database (e.g., realtime_chat)
-   - Grant a user with proper permissions
-   - The app will connect using the values in backend/.env
+That's it! 🎉
 
-5. Run the backend (Flask + Socket.IO)
+## 📖 Documentation
 
-   - From repo root (venv active):
-     - python backend/app.py
-   - Default: <http://127.0.0.1:5000>
+- [Quick Start Guide](QUICKSTART.md) - Get up and running in minutes
+- [User Guide](USER_GUIDE.md) - Learn how to use all features
+- [Features List](FEATURES.md) - Complete feature documentation
 
-6. Open the frontend
+## 🛠️ Tech Stack
+
+**Backend:**
+- Flask 3.1.2
+- Flask-SocketIO 5.5.1
+- MySQL Connector
+- JWT for authentication
+- Werkzeug for password hashing
+
+**Frontend:**
+- Vanilla JavaScript
+- Socket.IO Client 4.6.1
+- HTML5/CSS3
+- Inter Font (Google Fonts)
+
+**Database:**
+- MySQL 8.0+
+
+## 📁 Project Structure
    - Open frontend/chat.html in a browser
    - Or serve it with any static server; ensure it points to the backend URL
 
